@@ -1,5 +1,7 @@
+#ifdef _OPENMP
+    #include <omp.h>
+#endif
 #include <cstdio>
-#include <omp.h>
 #include <iostream>
 #include "opencv2/core.hpp"
 #include "opencv2/imgcodecs.hpp"
@@ -8,31 +10,26 @@
 #include <chrono>
 
 #define IMAGE_WIDTH 512
+#define IMAGE_HEIGHT IMAGE_WIDTH
+#define N_CIRCLES 100000
+
+//TODO repeat the experiment with different amounts of circles
 struct Circle{
-    int x;
-    int y;
-    int z;
+    cv::Point center;
     int radius;
-    int blue;
-    int green;
-    int red;
+    int color[3]; //bgr
+    Circle(cv::Point center, int radius, int blue, int green, int red){this->center = center, this->radius = radius, color[0] = blue, color[1] = green, color[2] = red;}
+    Circle(){};
 };
 
-bool compare( Circle a, Circle b){
-    if(a.z > b.z)
-        return 1;
-    else
-        return 0;
-}
-
+void generateCirclesSequential();
+void generateCirclesParallel();
 int main()
 {
-    // Start measuring time
-    auto begin = std::chrono::high_resolution_clock::now();
+#ifdef _OPENMP
+    printf("_OPENMP defined\nNum processors: %d\n", omp_get_num_procs());
 
-    cv::Mat image (IMAGE_WIDTH, IMAGE_WIDTH, CV_8UC3, cv::Scalar(255,255, 255));
-    cv::Mat background;
-
+#endif
     //creating circles
     /*
      * Let’s consider a structure that represents 3D points.
@@ -48,41 +45,84 @@ sometimes the structure variables are used together and sometimes not.
 SoA layout performs better on GPUs. If there is enough variability test
 for a particular usage pattern.
      */
-    int n = 10000;
-    Circle circles[n];
-    srand(0);
-    for (int i=0; i<n ; i++) {
-        struct Circle c;
-        c.radius = rand()%70 + 5;
-        c.x = rand()%(image.cols - 2*c.radius) + c.radius;
-        c.y = rand()%(image.rows - 2*c.radius) + c.radius;
-        c.z = rand()%20 + 1;
-        c.blue = rand()%256;
-        c.green = rand()%256;
-        c.red = rand()%256;
-        circles[i] = c;
-    }
-
-    std::sort(circles, circles+n, compare);
-
-    double alpha = 0.3;
-    int thickness = -1;//thickens of the line
-
-    for(int i=0; i<n; i++){
-        image.copyTo(background);
-        cv::Point center = cv::Point(circles[i].x, circles[i].y);
-        //std::cout<<circles[i].z<<std::endl;
-        cv::circle(image, center, circles[i].radius, cv::Scalar(circles[i].blue, circles[i].green, circles[i].red), thickness);
-        cv::Mat roi = image(cv::Rect(center.x - circles[i].radius, center.y - circles[i].radius, circles[i].radius*2, circles[i].radius*2));
-        cv::addWeighted(image, alpha, background, 1.0 - alpha , 0.0, image);
-    }
-
-    cv::imshow("Output", image);
+    //other version
+    auto begin = std::chrono::high_resolution_clock::now();
+    generateCirclesSequential();
     auto end = std::chrono::high_resolution_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin);
     printf("Time measured: %.3f seconds.\n", elapsed.count() * 1e-9);
+    //other version 2
+    begin = std::chrono::high_resolution_clock::now();
+    generateCirclesParallel();
+    end = std::chrono::high_resolution_clock::now();
+    elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin);
+    printf("Time measured: %.3f seconds.\n", elapsed.count() * 1e-9);
     cv::waitKey(0);
     return 0;
+}
+void generateCirclesSequential(){
+    cv::Mat bgrchannels[3] = {
+            cv::Mat(IMAGE_WIDTH, IMAGE_WIDTH, CV_8UC1, cv::Scalar(255)),
+            cv::Mat(IMAGE_WIDTH, IMAGE_WIDTH, CV_8UC1, cv::Scalar(255)),
+            cv::Mat(IMAGE_WIDTH, IMAGE_WIDTH, CV_8UC1, cv::Scalar(255))
+    };
+    cv::Mat backgrounds[3] = {
+            cv::Mat(IMAGE_WIDTH, IMAGE_WIDTH, CV_8UC1, cv::Scalar(255)),
+            cv::Mat(IMAGE_WIDTH, IMAGE_WIDTH, CV_8UC1, cv::Scalar(255)),
+            cv::Mat(IMAGE_WIDTH, IMAGE_WIDTH, CV_8UC1, cv::Scalar(255))
+    };
+    //define where the circles are
+    srand(0);
+    Circle circles[N_CIRCLES];
+    for (int i = 0; i < N_CIRCLES; i++) {
+        int radius = rand() % 70 + 5;
+        int colors[3] = {rand() % 256, rand() % 256, rand() % 256};
+        circles[i] = Circle{cv::Point(rand() % (IMAGE_WIDTH + 2 * radius) - radius, rand() % (IMAGE_HEIGHT + 2 * radius) - radius), radius, colors[0], colors[1], colors[2]};
+    }
+    //draw the circles
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < N_CIRCLES; j++) {
+            bgrchannels[i].copyTo(backgrounds[i]);
+            cv::circle(bgrchannels[i], circles[j].center, circles[j].radius, circles[j].color[i], -1);
+            cv::addWeighted(bgrchannels[i], 0.3, backgrounds[i], 1.0 - 0.3, 0.0, bgrchannels[i]);
+        }
+    }
+    cv::Mat image;
+    cv::merge(bgrchannels, 3, image);
+    cv::imshow("OutputSeq", image);
+}
+
+void generateCirclesParallel() {
+    cv::Mat bgrchannels[3] = {
+            cv::Mat(IMAGE_WIDTH, IMAGE_WIDTH, CV_8UC1, cv::Scalar(255)),
+            cv::Mat(IMAGE_WIDTH, IMAGE_WIDTH, CV_8UC1, cv::Scalar(255)),
+            cv::Mat(IMAGE_WIDTH, IMAGE_WIDTH, CV_8UC1, cv::Scalar(255))
+    };
+    cv::Mat backgrounds[3] = {
+            cv::Mat(IMAGE_WIDTH, IMAGE_WIDTH, CV_8UC1, cv::Scalar(255)),
+            cv::Mat(IMAGE_WIDTH, IMAGE_WIDTH, CV_8UC1, cv::Scalar(255)),
+            cv::Mat(IMAGE_WIDTH, IMAGE_WIDTH, CV_8UC1, cv::Scalar(255))
+    };
+    //define where the circles are
+    srand(0);
+    Circle circles[N_CIRCLES];
+    for (int i = 0; i < N_CIRCLES; i++) {
+        int radius = rand() % 70 + 5;
+        int colors[3] = {rand() % 256, rand() % 256, rand() % 256};
+        circles[i] = Circle{cv::Point(rand() % (IMAGE_WIDTH + 2 * radius) - radius, rand() % (IMAGE_HEIGHT + 2 * radius) - radius), radius, colors[0], colors[1], colors[2]};
+    }
+    //draw the circles
+#pragma omp parallel for default (none) shared (bgrchannels, backgrounds, circles)
+    for (int i = 0; i < 3; i++) {
+    for (int j = 0; j < N_CIRCLES; j++) {
+        bgrchannels[i].copyTo(backgrounds[i]);
+        cv::circle(bgrchannels[i], circles[j].center, circles[j].radius, circles[j].color[i], -1);
+        cv::addWeighted(bgrchannels[i], 0.3, backgrounds[i], 1.0 - 0.3, 0.0, bgrchannels[i]);
+    }
+}
+    cv::Mat image;
+    cv::merge(bgrchannels, 3, image);
+    cv::imshow("OutputPar", image);
 }
 
 
