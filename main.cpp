@@ -1,5 +1,5 @@
 #ifdef _OPENMP
-    #include <omp.h>
+#include <omp.h>
 #endif
 #include <cstdio>
 #include <iostream>
@@ -76,6 +76,7 @@ void generateCirclesSequential(){
     for (int i = 0; i < N_CIRCLES; i++) {
         int radius = rand() % 70 + 5;
         int colors[3] = {rand() % 256, rand() % 256, rand() % 256};
+        //i dati sopra li puoi mettere direttamente dentro così non crei e accedi ad altre variabili
         circles[i] = Circle{cv::Point(rand() % (IMAGE_WIDTH + 2 * radius) - radius, rand() % (IMAGE_HEIGHT + 2 * radius) - radius), radius, colors[0], colors[1], colors[2]};
     }
     for (int i = 0; i < 3; i++) {
@@ -103,6 +104,7 @@ void generateCirclesParallel() {
     };
     srand(0);
     Circle circles[N_CIRCLES];
+    //questo sotto non lo parallelizzi?
     for (int i = 0; i < N_CIRCLES; i++) {
         int radius = rand() % 70 + 5;
         int colors[3] = {rand() % 256, rand() % 256, rand() % 256};
@@ -110,18 +112,13 @@ void generateCirclesParallel() {
     }
 #pragma omp parallel for default (none) shared (bgrchannels, backgrounds, circles)
     for (int i = 0; i < 3; i++) {
-    for (int j = 0; j < N_CIRCLES; j++) {
-        bgrchannels[i].copyTo(backgrounds[i]);
-        cv::circle(bgrchannels[i], circles[j].center, circles[j].radius, circles[j].color[i], -1);
-        cv::addWeighted(bgrchannels[i], 0.3, backgrounds[i], 1.0 - 0.3, 0.0, bgrchannels[i]);
+        for (int j = 0; j < N_CIRCLES; j++) {
+            bgrchannels[i].copyTo(backgrounds[i]);
+            cv::circle(bgrchannels[i], circles[j].center, circles[j].radius, circles[j].color[i], -1);
+            cv::addWeighted(bgrchannels[i], 0.3, backgrounds[i], 1.0 - 0.3, 0.0, bgrchannels[i]);
+        }
     }
-}
     cv::Mat image;
     cv::merge(bgrchannels, 3, image);
     cv::imshow("OutputPar", image);
 }
-
-
-
-
-
