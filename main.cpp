@@ -71,7 +71,6 @@ void generateCirclesSequential(){
             cv::Mat(IMAGE_WIDTH, IMAGE_WIDTH, CV_8UC1, cv::Scalar(255)),
             cv::Mat(IMAGE_WIDTH, IMAGE_WIDTH, CV_8UC1, cv::Scalar(255))
     };
-    //define where the circles are
     srand(0);
     Circle circles[N_CIRCLES];
     for (int i = 0; i < N_CIRCLES; i++) {
@@ -79,7 +78,6 @@ void generateCirclesSequential(){
         int colors[3] = {rand() % 256, rand() % 256, rand() % 256};
         circles[i] = Circle{cv::Point(rand() % (IMAGE_WIDTH + 2 * radius) - radius, rand() % (IMAGE_HEIGHT + 2 * radius) - radius), radius, colors[0], colors[1], colors[2]};
     }
-    //draw the circles
     for (int i = 0; i < 3; i++) {
         for (int j = 0; j < N_CIRCLES; j++) {
             bgrchannels[i].copyTo(backgrounds[i]);
@@ -103,7 +101,6 @@ void generateCirclesParallel() {
             cv::Mat(IMAGE_WIDTH, IMAGE_WIDTH, CV_8UC1, cv::Scalar(255)),
             cv::Mat(IMAGE_WIDTH, IMAGE_WIDTH, CV_8UC1, cv::Scalar(255))
     };
-    //define where the circles are
     srand(0);
     Circle circles[N_CIRCLES];
     for (int i = 0; i < N_CIRCLES; i++) {
@@ -111,7 +108,6 @@ void generateCirclesParallel() {
         int colors[3] = {rand() % 256, rand() % 256, rand() % 256};
         circles[i] = Circle{cv::Point(rand() % (IMAGE_WIDTH + 2 * radius) - radius, rand() % (IMAGE_HEIGHT + 2 * radius) - radius), radius, colors[0], colors[1], colors[2]};
     }
-    //draw the circles
 #pragma omp parallel for default (none) shared (bgrchannels, backgrounds, circles)
     for (int i = 0; i < 3; i++) {
     for (int j = 0; j < N_CIRCLES; j++) {
