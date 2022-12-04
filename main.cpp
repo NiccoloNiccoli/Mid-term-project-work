@@ -74,9 +74,7 @@ double generateCirclesSequential(int nCircles){
     Circle circles[nCircles];
     for (int i = 0; i < nCircles; i++) {
         int radius = rand() % 70 + 5;
-        int colors[3] = {rand() % 256, rand() % 256, rand() % 256};
-        //i dati sopra li puoi mettere direttamente dentro così non crei e accedi ad altre variabili
-        circles[i] = Circle{cv::Point(rand() % (IMAGE_WIDTH + 2 * radius) - radius, rand() % (IMAGE_HEIGHT + 2 * radius) - radius), radius, colors[0], colors[1], colors[2]};
+        circles[i] = Circle{cv::Point(rand() % (IMAGE_WIDTH + 2 * radius) - radius, rand() % (IMAGE_HEIGHT + 2 * radius) - radius), radius, rand() % 256, rand() % 256, rand() % 256};
     }
     for (int i = 0; i < 3; i++) {
         for (int j = 0; j < nCircles; j++) {
@@ -108,19 +106,31 @@ double generateCirclesParallel(int nCircles) {
     };
     srand(0);
     Circle circles[nCircles];
+
     for (int i = 0; i < nCircles; i++) {
         int radius = rand() % 70 + 5;
-        int colors[3] = {rand() % 256, rand() % 256, rand() % 256};
-        circles[i] = Circle{cv::Point(rand() % (IMAGE_WIDTH + 2 * radius) - radius, rand() % (IMAGE_HEIGHT + 2 * radius) - radius), radius, colors[0], colors[1], colors[2]};
+        circles[i] = Circle{cv::Point(rand() % (IMAGE_WIDTH + 2 * radius) - radius, rand() % (IMAGE_HEIGHT + 2 * radius) - radius), radius, rand() % 256, rand() % 256, rand() % 256};
     }
-#pragma omp parallel for default (none) shared (bgrchannels, backgrounds, circles, nCircles)
+   /* int nCirclesPerThread;
+#pragma omp parallel default(none) shared (bgrchannels, backgrounds, circles, nCircles) private (nCirclesPerThread)
+    {
+    nCirclesPerThread = nCircles / omp_get_num_procs();
+    printf("Thread %d circles: %d\n", omp_get_thread_num(), nCirclesPerThread);
+    int limit = omp_get_thread_num() == (omp_get_num_procs()-1)?nCircles:nCirclesPerThread * (omp_get_thread_num()+1);
+    for (int i = nCirclesPerThread * omp_get_thread_num(); i < limit; i++) {
+        int radius = rand() % 70 + 5;
+        circles[i] = Circle{
+                cv::Point(rand() % (IMAGE_WIDTH + 2 * radius) - radius, rand() % (IMAGE_HEIGHT + 2 * radius) - radius),
+                radius, rand() % 256, rand() % 256, rand() % 256};
+    }*/
+    #pragma omp parallel for default(none) shared (bgrchannels, backgrounds, circles, nCircles)
     for (int i = 0; i < 3; i++) {
-    for (int j = 0; j < nCircles; j++) {
-        bgrchannels[i].copyTo(backgrounds[i]);
-        cv::circle(bgrchannels[i], circles[j].center, circles[j].radius, circles[j].color[i], -1);
-        cv::addWeighted(bgrchannels[i], 0.3, backgrounds[i], 1.0 - 0.3, 0.0, bgrchannels[i]);
+        for (int j = 0; j < nCircles; j++) {
+            bgrchannels[i].copyTo(backgrounds[i]);
+            cv::circle(bgrchannels[i], circles[j].center, circles[j].radius, circles[j].color[i], -1);
+            cv::addWeighted(bgrchannels[i], 0.3, backgrounds[i], 1.0 - 0.3, 0.0, bgrchannels[i]);
+        }
     }
-}
     cv::Mat image;
     cv::merge(bgrchannels, 3, image);
     cv::imshow("OutputPar", image);
