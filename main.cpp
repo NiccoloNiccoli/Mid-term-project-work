@@ -75,6 +75,7 @@ double generateCirclesSequential(int nCircles){
     for (int i = 0; i < nCircles; i++) {
         int radius = rand() % 70 + 5;
         int colors[3] = {rand() % 256, rand() % 256, rand() % 256};
+        //i dati sopra li puoi mettere direttamente dentro così non crei e accedi ad altre variabili
         circles[i] = Circle{cv::Point(rand() % (IMAGE_WIDTH + 2 * radius) - radius, rand() % (IMAGE_HEIGHT + 2 * radius) - radius), radius, colors[0], colors[1], colors[2]};
     }
     for (int i = 0; i < 3; i++) {
