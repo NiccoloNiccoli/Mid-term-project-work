@@ -24,8 +24,8 @@ struct Circle{
 
 double generateCirclesSequential(int nCircles);
 double generateCirclesParallel(int nCircles);
-double generateCirclesParallelAoS(int n);
-void exportOutputs(std::vector<int> nCircles,std::vector<double> seq,std::vector<double> par, std::vector<double> parAoS);
+double generateCirclesParallelArray(int n);
+void exportOutputs(std::vector<int> nCircles,std::vector<double> seq,std::vector<double> par, std::vector<double> parArray);
 
 
 int main()
@@ -49,20 +49,20 @@ sometimes the structure variables are used together and sometimes not.
 SoA layout performs better on GPUs. If there is enough variability test
 for a particular usage pattern.
      */
-    std::vector<double> seq, par, parAoS;
-    double seqt = 0, part = 0, parAoSt = 0;
+    std::vector<double> seq, par, parArray;
+    double seqt = 0, part = 0, parArrayt = 0;
     std::vector<int> nCircles = {10, 100, 1000, 10000};
     for(int n : nCircles) {
         for (int i = 0; i < N_REP; i++) {
             seqt += generateCirclesSequential(n);
             part += generateCirclesParallel(n);
-            parAoSt += generateCirclesParallelAoS(n);
+            parArrayt += generateCirclesParallelArray(n);
         }
         seq.push_back(seqt / N_REP);
         par.push_back(part / N_REP);
-        parAoS.push_back(parAoSt / N_REP);
+        parArray.push_back(parArrayt / N_REP);
     }
-    exportOutputs(nCircles, seq, par, parAoS);
+    exportOutputs(nCircles, seq, par, parArray);
     return 0;
 }
 
@@ -139,7 +139,7 @@ double generateCirclesParallel(int nCircles) {
     return elapsed.count() * 1e-9;
 }
 
-double generateCirclesParallelAoS(int nCircles) {
+double generateCirclesParallelArray(int nCircles) {
    auto begin = std::chrono::high_resolution_clock::now();
    cv::Point centers[nCircles];
    int radiuses[nCircles];
@@ -173,15 +173,15 @@ double generateCirclesParallelAoS(int nCircles) {
    }
    cv::Mat image;
    cv::merge(bgrchannels, 3, image);
-   cv::imshow("OutputParAoS", image);
+   cv::imshow("OutputParArray", image);
    auto end = std::chrono::high_resolution_clock::now();
    auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin);
    printf("Time measured: %.4f seconds.\n", elapsed.count() * 1e-9);
-    cv::imwrite("../output_"+std::to_string(nCircles)+"_parAoS.png", image);
+    cv::imwrite("../output_"+std::to_string(nCircles)+"_parArray.png", image);
     return elapsed.count() * 1e-9;
 }
 
-void exportOutputs(std::vector<int> nCircles,std::vector<double> seq,std::vector<double> par, std::vector<double> parAoS) {
+void exportOutputs(std::vector<int> nCircles,std::vector<double> seq,std::vector<double> par, std::vector<double> parArray) {
     using sc = std::chrono::system_clock ;
     std::time_t t = sc::to_time_t(sc::now());
     char buf[20];
@@ -193,9 +193,9 @@ void exportOutputs(std::vector<int> nCircles,std::vector<double> seq,std::vector
     outputFile.open(fileName, std::ios::out | std::ios::app);
     if(outputFile.is_open()) {
         std::cout<<"ok"<<std::endl;
-        outputFile << "Number of circles; Sequential version; Parallel version; Parallel version with AoS\n";
+        outputFile << "Number of circles; Sequential version; Parallel version; Parallel version with Array\n";
         for (int i = 0; i < nCircles.size(); i++) {
-            outputFile << nCircles[i] << ";" << seq[i] << ";" << par[i] << ";" << parAoS[i] << "\n";
+            outputFile << nCircles[i] << ";" << seq[i] << ";" << par[i] << ";" << parArray[i] << "\n";
         }
         outputFile.close();
     }
