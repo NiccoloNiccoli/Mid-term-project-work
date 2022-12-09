@@ -132,7 +132,7 @@ double generateCirclesSequential_2(int nCircles){
             cv::circle(images[i], circles[j].center, circles[j].radius, cv::Scalar(circles[j].color[0], circles[j].color[1], circles[j].color[2], 255), -1);
             cv::addWeighted(images[i], ALPHA, background, 1.0 - ALPHA, 0.0, images[i]);
         }
-        cv::imwrite("../outputSeq2_"+std::to_string(i)+".png", images[i]);
+        //cv::imwrite("../outputSeq2_"+std::to_string(i)+".png", images[i]);
     }
 
     for (int i = 0; i < numProcs; i++) {
@@ -140,12 +140,13 @@ double generateCirclesSequential_2(int nCircles){
     }
     auto end = std::chrono::high_resolution_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin);
+    printf("Seq 2 Time measured: %.4f seconds.\n", elapsed.count() * 1e-9);
 
     cv::imshow("OutputSeq_2", white);
     cv::imwrite("../outputSeq2_.png", white);
 
 
-    printf("Seq 2 Time measured: %.4f seconds.\n", elapsed.count() * 1e-9);
+
     //cv::imwrite("../output_"+std::to_string(nCircles)+"_par2.png", image);
     return elapsed.count() * 1e-9;
 }
@@ -176,7 +177,7 @@ double generateCirclesParallel_2(int nCircles){
             cv::circle(images[i], circles[j].center, circles[j].radius, cv::Scalar(circles[j].color[0], circles[j].color[1], circles[j].color[2], 255), -1);
             cv::addWeighted(images[i], ALPHA, background, 1.0 - ALPHA, 0.0, images[i]);
         }
-        cv::imwrite("../outputPar2_"+std::to_string(i)+".png", images[i]);
+        //cv::imwrite("../outputPar2_"+std::to_string(i)+".png", images[i]);
     }
 
     for (int i = 0; i < numProcs; i++) {
@@ -188,6 +189,7 @@ double generateCirclesParallel_2(int nCircles){
     }
     auto end = std::chrono::high_resolution_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin);
+    printf("Par 2 Time measured: %.4f seconds.\n", elapsed.count() * 1e-9);
 
     cv::imwrite("../outputPar2_.png", white);
     cv::Mat bgr = cv::Mat(IMAGE_HEIGHT, IMAGE_WIDTH, CV_8UC3, cv::Scalar(255, 255, 255));
@@ -195,7 +197,6 @@ double generateCirclesParallel_2(int nCircles){
     cv::imwrite("../outputPar2_BGR.png", bgr);
 
 
-    printf("Par 2 Time measured: %.4f seconds.\n", elapsed.count() * 1e-9);
     //cv::imwrite("../output_"+std::to_string(nCircles)+"_par2.png", image);
     return elapsed.count() * 1e-9;
 }
