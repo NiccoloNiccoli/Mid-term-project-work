@@ -14,7 +14,7 @@
 #define IMAGE_WIDTH 512
 #define IMAGE_HEIGHT IMAGE_WIDTH
 #define N_REP 2
-#define RADIUS 10
+#define RADIUS 70
 #define ALPHA 0.5
 
 // Non parallelizziamo la generazione dei cerchi per avere output identici (dipendono dall'ordine in cui vengono chiamati i rand)
@@ -142,12 +142,9 @@ double generateCirclesSequential_2(int nCircles){
     auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin);
     printf("Seq 2 Time measured: %.4f seconds.\n", elapsed.count() * 1e-9);
 
-    cv::imshow("OutputSeq_2", white);
-    cv::imwrite("../outputSeq2_.png", white);
-
-
-
-    //cv::imwrite("../output_"+std::to_string(nCircles)+"_par2.png", image);
+    //cv::imshow("OutputSeq_2", white);
+    //cv::imwrite("../outputSeq2_.png", white);
+    cv::imwrite("../output_"+std::to_string(nCircles)+"_seq.png", white);
     return elapsed.count() * 1e-9;
 }
 
@@ -191,7 +188,7 @@ double generateCirclesParallel_2(int nCircles){
     auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin);
     printf("Par 2 Time measured: %.4f seconds.\n", elapsed.count() * 1e-9);
 
-    cv::imwrite("../outputPar2_.png", white);
+    cv::imwrite("../output_"+std::to_string(nCircles)+"_par.png", white);
     cv::Mat bgr = cv::Mat(IMAGE_HEIGHT, IMAGE_WIDTH, CV_8UC3, cv::Scalar(255, 255, 255));
     cv::cvtColor(white,bgr,cv::COLOR_BGRA2BGR, 3);
     cv::imwrite("../outputPar2_BGR.png", bgr);
