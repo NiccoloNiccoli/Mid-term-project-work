@@ -12,9 +12,10 @@
 
 
 #define IMAGE_WIDTH 512
-#define IMAGE_HEIGHT IMAGE_WIDTH
-#define N_REP 2
+#define IMAGE_HEIGHT 512
+#define N_REP 1
 #define RADIUS 70
+#define MIN_RADIUS 5
 #define ALPHA 0.5
 
 // Non parallelizziamo la generazione dei cerchi per avere output identici (dipendono dall'ordine in cui vengono chiamati i rand)
@@ -30,6 +31,8 @@ double generateCirclesSequential_2(int Circles);
 double generateCirclesParallel_2(int nCircles);
 double generateCirclesParallelArray(int n);
 void exportOutputs(std::vector<int> nCircles,std::vector<double> seq,std::vector<double> par);
+void overlayImage(cv::Mat* src, cv::Mat* overlay);
+void overlayImage(cv::Mat* src, cv::Mat* overlay, int y0, int y1);
 
 void overlayImage(cv::Mat* src, cv::Mat* overlay) {
     for (int y = 0; y < src->rows; y++) {
@@ -46,6 +49,30 @@ void overlayImage(cv::Mat* src, cv::Mat* overlay) {
                 srcPx = src->data[y * src->step + x * src->channels() + c];
                 finalPx = overlayPx + srcPx * (1 - alphaOverlay);
                 src->data[y * src->step + src->channels() * x + c] = (finalPx < 255) ? (finalPx + 1) : 255;*/
+                overlayPx = overlay->data[y * overlay->step + x * overlay->channels() + c];
+                srcPx = src->data[y * src->step + x * src->channels() + c];
+                src->data[y * src->step + src->channels() * x + c] = (overlayPx*alphaOverlay + srcPx * alphaSrc * (1-alphaOverlay))/alpha;
+            }
+            src->data[y * src->step + src->channels() * x + 3] = alpha * 255;
+        }
+    }
+}
+
+void overlayImage(cv::Mat* src, cv::Mat* overlay, int y0, int y1){
+    for (int y = y0; y < y1; y++) {
+        for (int x = 0; x < src->cols; x++) {
+            double alphaSrc = (double)(src->data[y * src->step + x * src->channels() + 3]) / 255;
+            double alphaOverlay = (double)(overlay->data[y * overlay->step + x * overlay->channels() + 3]) / 255;
+            double alpha = alphaOverlay + alphaSrc * (1 - alphaOverlay);
+            unsigned char overlayPx;
+            unsigned char srcPx;
+            unsigned char finalPx;
+
+            for (int c = 0; c < src->channels() - 1; c++) {
+                /* overlayPx = overlay->data[y * overlay->step + x * overlay->channels() + c];
+                 srcPx = src->data[y * src->step + x * src->channels() + c];
+                 finalPx = overlayPx + srcPx * (1 - alphaOverlay);
+                 src->data[y * src->step + src->channels() * x + c] = (finalPx < 255) ? (finalPx + 1) : 255;*/
                 overlayPx = overlay->data[y * overlay->step + x * overlay->channels() + c];
                 srcPx = src->data[y * src->step + x * src->channels() + c];
                 src->data[y * src->step + src->channels() * x + c] = (overlayPx*alphaOverlay + srcPx * alphaSrc * (1-alphaOverlay))/alpha;
@@ -77,9 +104,11 @@ SoA layout performs better on GPUs. If there is enough variability test
 for a particular usage pattern.
      */
     std::vector<double> seq, par;
-    double seqt = 0, part = 0;
+    double seqt, part;
     std::vector<int> nCircles = {200, 1000, 10000, 100000};
     for(int n : nCircles) {
+        seqt = 0;
+        part = 0;
         for (int i = 0; i < N_REP; i++) {
             seqt += generateCirclesSequential_2(n);
             part += generateCirclesParallel_2(n);
@@ -119,7 +148,7 @@ double generateCirclesSequential_2(int nCircles){
     srand(0);
     Circle circles[nCircles];
     for (int i = 0; i < nCircles; i++) {
-        int radius = rand() % RADIUS + 5;
+        int radius = rand() % RADIUS + MIN_RADIUS;
         circles[i] = Circle{cv::Point(rand() % (IMAGE_WIDTH + 2 * radius) - radius, rand() % (IMAGE_HEIGHT + 2 * radius) - radius), radius, rand() % 256, rand() % 256, rand() % 256};
     }
     //TODO PER COMODITà CONSIDERIAMO SOLO NUMERO DI CERCHI MULTIPLI DEL NUMERO DI THREAD
@@ -160,13 +189,14 @@ double generateCirclesParallel_2(int nCircles){
     srand(0);
     Circle circles[nCircles];
     for (int i = 0; i < nCircles; i++) {
-        int radius = rand() % RADIUS + 5;
+        int radius = rand() % RADIUS + MIN_RADIUS;
         circles[i] = Circle{cv::Point(rand() % (IMAGE_WIDTH + 2 * radius) - radius, rand() % (IMAGE_HEIGHT + 2 * radius) - radius), radius, rand() % 256, rand() % 256, rand() % 256};
     }
     //TODO PER COMODITà CONSIDERIAMO SOLO NUMERO DI CERCHI MULTIPLI DEL NUMERO DI THREAD
-    int minNumCirclesPerImg = (int)(nCircles / numProcs);
+    int minNumCirclesPerImg = nCircles / numProcs;
 
-#pragma omp parallel for default(none) shared (images, circles, nCircles, numProcs, minNumCirclesPerImg)
+#pragma omp parallel default(none) shared (images, circles, nCircles, numProcs, minNumCirclesPerImg, white)
+#pragma omp for
     for (int i = 0; i < numProcs; i++) {
         cv::Mat background = cv::Mat(IMAGE_HEIGHT, IMAGE_WIDTH, CV_8UC4, cv::Scalar(255, 255, 255, 0));
         for (int j = i*minNumCirclesPerImg; j < (i+1)*minNumCirclesPerImg; j++) {
@@ -176,13 +206,15 @@ double generateCirclesParallel_2(int nCircles){
         }
         //cv::imwrite("../outputPar2_"+std::to_string(i)+".png", images[i]);
     }
+#pragma omp barrier
 
-    for (int i = 0; i < numProcs; i++) {
-        //TODO I COLORI VENGONO LEGGERMENTE DIVERSI (-1 SU 255 A OGNI FUSIONE DI LAYER) PER APPROSSIMAZIONE DEL NUOVO COLORE
-        std::cout<<"rosso "<<i<<" "<<static_cast<unsigned>(white.data[510 * white.step + 510 * white.channels() + 2])<<std::endl;
-        std::cout<<"verde "<<i<<" "<<static_cast<unsigned>(white.data[510 * white.step + 510 * white.channels() + 1])<<std::endl;
-        std::cout<<"blu "<<i<<" "<<static_cast<unsigned>(white.data[510 * white.step + 510 * white.channels()])<<std::endl;
-        overlayImage(&white, &images[i]);
+    int tileHeight = IMAGE_HEIGHT / numProcs;
+
+#pragma omp for
+    for (int threadIdx = 0; threadIdx < numProcs; threadIdx++) {
+        for (int i = 0; i < numProcs; i++) {
+            overlayImage(&white, &images[i], tileHeight * threadIdx, tileHeight * (threadIdx + 1));
+        }
     }
     auto end = std::chrono::high_resolution_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin);
@@ -252,7 +284,7 @@ double generateCirclesParallel(int nCircles) {
     Circle circles[nCircles];
 
     for (int i = 0; i < nCircles; i++) {
-        int radius = rand() % RADIUS + 5;
+        int radius = rand() % RADIUS + MIN_RADIUS;
         circles[i] = Circle{cv::Point(rand() % (IMAGE_WIDTH + 2 * radius) - radius, rand() % (IMAGE_HEIGHT + 2 * radius) - radius), radius, rand() % 256, rand() % 256, rand() % 256};
     }
 
